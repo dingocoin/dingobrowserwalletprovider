@@ -1,6 +1,23 @@
 const dingo = require("./dingo");
 const db = require("./database");
+const express = require('express');
+const cors = require('cors');
+const https = require('https');
+const rateLimit = require("express-rate-limit");
 
+function asyncHandler(fn) {
+  return async function(req, res) {
+    try {
+      return await fn(req, res);
+    } catch (err) {
+      console.log(`>>>>> ERROR START [${(new Date()).toUTCString()}] >>>>>\n`);
+      console.log(err.stack + '\n' + req.path + '\n' +
+                  JSON.stringify(req.body, null, 2) + '\n');
+      console.log('<<<<<< ERROR END <<<<<<\n');
+      res.status(500).json(err.stack);
+    }
+  };
+}
 
 // In the same block, the same UTXO can appear in both the vout of some
 // tx and the vin of some other tx. Take care to add first before deleting,
@@ -104,5 +121,32 @@ const diff = async (height) => {
     setTimeout(liveStep, 1000);
   };
   liveStep();
+
+  // API.
+  const app = express();
+  app.use(cors());
+  app.use(express.json());
+  const createRateLimit = (windowS, count) => rateLimit({ windowMs: windowS * 1000, max: count });
+
+  app.get('/utxos/:address', createRateLimit(1, 5), asyncHandler(async (req, res) => {
+    const address = req.params.address;
+    res.send(await db.getUtxos(address));
+  }));
+
+  /*
+  server = https.createServer({
+    key: fs.readFileSync(sslSettings.keyPath),
+    cert: fs.readFileSync(sslSettings.certPath),
+    SNICallback: (domain, cb) => {
+      cb(null, tls.createSecureContext({
+        key: fs.readFileSync(sslSettings.keyPath),
+        cert: fs.readFileSync(sslSettings.certPath),
+      }));
+    }
+  },*/
+
+  app.listen(8443, () => {
+    console.log(`Started on port 8443`);
+  });
 
 })();
