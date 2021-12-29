@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS utxos (
   vout INTEGER NOT NULL,
   height INTEGER NOT NULL,
   address TEXT NOT NULL,
-  amount INTEGER NOT NULL
+  amount TEXT NOT NULL
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_utxos_utxo ON utxos (txid, vout);
 CREATE INDEX IF NOT EXISTS idx_utxos_adderss ON utxos (address);
