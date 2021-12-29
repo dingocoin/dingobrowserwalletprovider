@@ -1,9 +1,11 @@
-const dingo = require("./dingo");
-const db = require("./database");
-const express = require('express');
 const cors = require('cors');
+const db = require("./database");
+const dingo = require("./dingo");
+const express = require('express');
+const fs = require('fs');
 const https = require('https');
 const rateLimit = require("express-rate-limit");
+const tls = require('tls');
 
 function asyncHandler(fn) {
   return async function(req, res) {
@@ -133,19 +135,16 @@ const diff = async (height) => {
     res.send(await db.getUtxos(address));
   }));
 
-  /*
   server = https.createServer({
-    key: fs.readFileSync(sslSettings.keyPath),
-    cert: fs.readFileSync(sslSettings.certPath),
+    key: fs.readFileSync('/etc/letsencrypt/live/bewp0.dingocoin.org/privkey.pem'),
+    cert: fs.readFileSync('/etc/letsencrypt/live/bewp0.dingocoin.org/fullchain.pem'),
     SNICallback: (domain, cb) => {
       cb(null, tls.createSecureContext({
-        key: fs.readFileSync(sslSettings.keyPath),
-        cert: fs.readFileSync(sslSettings.certPath),
+        key: fs.readFileSync('/etc/letsencrypt/live/bewp0.dingocoin.org/privkey.pem'),
+        cert: fs.readFileSync('/etc/letsencrypt/live/bewp0.dingocoin.org/fullchain.pem'),
       }));
     }
-  },*/
-
-  app.listen(8443, () => {
+  }, app).listen(8443, () => {
     console.log(`Started on port 8443`);
   });
 
