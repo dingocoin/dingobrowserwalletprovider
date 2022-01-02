@@ -146,13 +146,13 @@ const diff = async (height) => {
         for (const vin of tx.vin) {
           const utxo = await db.getUtxo(vin.txid, vin.vout);
           if (utxo.address === address) {
-            change += BigInt(utxo.amount);
+            change -= BigInt(utxo.amount);
           }
         }
         for (const vout of tx.vout) {
           if (vout.scriptPubKey.type === 'pubkeyhash') {
             if (vout.scriptPubKey.addresses[0] === address) {
-              change -= BigInt(dingo.toSatoshi(vout.value));
+              change += BigInt(dingo.toSatoshi(vout.value));
             }
           }
         }
