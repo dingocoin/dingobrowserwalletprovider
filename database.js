@@ -12,6 +12,7 @@ module.exports = {
   getUtxos,
   removeUtxos,
   insertUtxos,
+  getUtxo
 };
 
 function load(path) {
@@ -24,9 +25,16 @@ async function getLatestHeight() {
   )["MAX(height)"];
 }
 
+function getUtxo(txid, vout) {
+  return util.promisify(db.get.bind(db))(
+    `SELECT txid, vout, height, address, amount FROM utxos WHERE txid=? AND vout=?`,
+    [txid, vout]
+  );
+}
+
 function getUtxos(address) {
   return util.promisify(db.all.bind(db))(
-    `SELECT txid, vout, height, amount FROM utxos WHERE address="${address}"`
+    `SELECT txid, vout, height, amount FROM utxos WHERE address=?`, [address]
   );
 }
 

@@ -140,20 +140,19 @@ const diff = async (height) => {
 
       const mempool = await dingo.getRawMempool();
       let change = 0n;
+
       for (const txid of mempool) {
-        const tx = await dingo.getTransaction(txid);
-        for (const d of tx.details) {
-          if (d.address === address) {
-            if (d.category === "send") {
-              if (d.amount[0] !== "-") {
-                throw new Error("Invalid outgoing amount");
-              }
-              change -= BigInt(dingo.toSatoshi(d.amount.slice(1)));
-            } else if (d.category === "receive") {
-              if (d.amount[0] === "-") {
-                throw new Error("Invalid incoming amount");
-              }
-              change += BigInt(dingo.toSatoshi(d.amount));
+        const tx = await dingo.decodeRawTransaction(await dingo.getRawTransaction(txid));
+        for (const vin of tx.vin) {
+          const utxo = await db.getUtxo(vin.txid, vin.vout);
+          if (utxo.address === address) {
+            change += BigInt(utxo.amount);
+          }
+        }
+        for (const vout of tx.vout) {
+          if (vout.scriptPubKey.type === 'pubkeyhash') {
+            if (vout.scriptPubKey.addresses[0] === address) {
+              change -= BigInt(dingo.toSatoshi(vout.value));
             }
           }
         }
@@ -179,7 +178,6 @@ const diff = async (height) => {
     })
   );
 
-  /*
   server = https.createServer({
     key: fs.readFileSync('/etc/letsencrypt/live/bewp0.dingocoin.org/privkey.pem'),
     cert: fs.readFileSync('/etc/letsencrypt/live/bewp0.dingocoin.org/fullchain.pem'),
@@ -189,8 +187,7 @@ const diff = async (height) => {
         cert: fs.readFileSync('/etc/letsencrypt/live/bewp0.dingocoin.org/fullchain.pem'),
       }));
     }
-  },*/
-  app.listen(8443, () => {
+  }, app).listen(8443, () => {
     console.log(`Started on port 8443`);
   });
 })();
