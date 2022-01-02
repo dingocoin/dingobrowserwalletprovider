@@ -16,7 +16,11 @@ module.exports = {
   getBlock,
   getRawTransaction,
   decodeRawTransaction,
-  getBlockchainInfo
+  getBlockchainInfo,
+  decodeRawTransaction,
+  sendRawTransaction,
+  getRawMempool,
+  getTransaction
 };
 
 function toSatoshi(x) {
@@ -54,10 +58,10 @@ async function callRpc(method, params) {
         return reject(err);
       } else {
         const r = JSON.parse(body
-          .replace(/"(amount|value)":\s*(\d+)\.((\d*?[1-9])0*),/g, '"$1":"$2\.$4",')
-          .replace(/"(amount|value)":\s*(\d+)\.0+,/g, '"$1":"$2",'));
+          .replace(/"(amount|value)":\s*(\-?)(\d+)\.((\d*?[1-9])0*),/g, '"$1":"$2$3\.$5",')
+          .replace(/"(amount|value)":\s*(\-?)(\d+)\.0+,/g, '"$1":"$2$3",'));
         if (r.error) {
-          reject(r.error.message);
+          reject(r.error);
         } else {
           resolve(r.result);
         }
@@ -84,4 +88,20 @@ function decodeRawTransaction(hex) {
 
 function getBlockchainInfo() {
   return callRpc('getblockchaininfo', []);
+}
+
+function decodeRawTransaction(hex) {
+  return callRpc('decoderawtransaction', [hex]);
+}
+
+function sendRawTransaction(hex) {
+  return callRpc('sendrawtransaction', [hex]);
+}
+
+function getRawMempool() {
+  return callRpc('getrawmempool', []);
+}
+
+function getTransaction(hash) {
+  return callRpc('gettransaction', [hash]);
 }

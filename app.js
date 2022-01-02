@@ -1,21 +1,21 @@
-const cors = require('cors');
+const cors = require("cors");
 const db = require("./database");
 const dingo = require("./dingo");
-const express = require('express');
-const fs = require('fs');
-const https = require('https');
+const express = require("express");
+const fs = require("fs");
+const https = require("https");
 const rateLimit = require("express-rate-limit");
-const tls = require('tls');
+const tls = require("tls");
+const { createDeflateRaw } = require("zlib");
 
 function asyncHandler(fn) {
-  return async function(req, res) {
+  return async function (req, res) {
     try {
       return await fn(req, res);
     } catch (err) {
-      console.log(`>>>>> ERROR START [${(new Date()).toUTCString()}] >>>>>\n`);
-      console.log(err.stack + '\n' + req.path + '\n' +
-                  JSON.stringify(req.body, null, 2) + '\n');
-      console.log('<<<<<< ERROR END <<<<<<\n');
+      console.log(`>>>>> ERROR START [${new Date().toUTCString()}] >>>>>\n`);
+      console.log(err);
+      console.log("<<<<<< ERROR END <<<<<<\n");
       res.status(500).json(err.stack);
     }
   };
@@ -55,23 +55,20 @@ const diff = async (height) => {
         delUtxos.push({ txid: vin.txid, vout: vin.vout });
       }
     }
-
   }
-
 
   return { newUtxos: newUtxos, delUtxos: delUtxos };
 };
 
 (async () => {
-
-  console.log('Loading database...');
+  console.log("Loading database...");
   db.load("./database/database.db");
 
   let height = await db.getLatestHeight();
 
   // Initial sync: Use memory to speed up diff accumulation.
   if (height === null) {
-    console.log('Starting initial sync...');
+    console.log("Starting initial sync...");
 
     height = 1; // Start from height = 1.
     const targetHeight = (await dingo.getBlockchainInfo()).blocks;
@@ -87,9 +84,7 @@ const diff = async (height) => {
       }
 
       if (height % 1000 === 0) {
-        console.log(
-          "[Initial sync] Height = " + height + " / " + targetHeight
-        );
+        console.log("[Initial sync] Height = " + height + " / " + targetHeight);
       }
       height += 1;
     }
@@ -101,23 +96,20 @@ const diff = async (height) => {
       console.log(`  Indexes [${i}, ${i + 1000})`);
       await db.insertUtxos(Object.values(utxoList.slice(i, i + 1000)));
     }
-    console.log('Initial sync complete.');
-
+    console.log("Initial sync complete.");
   } else {
     height += 1; // Fetch from next block.
   }
 
   // Live sync: write directly to database.
-  console.log('Starting live sync...');
+  console.log("Starting live sync...");
   const liveStep = async () => {
     const targetHeight = (await dingo.getBlockchainInfo()).blocks;
     while (height <= targetHeight) {
       const { delUtxos, newUtxos } = await diff(height);
       await db.insertUtxos(newUtxos);
       await db.removeUtxos(delUtxos);
-      console.log(
-        "[Live sync] Height = " + height + " / " + targetHeight
-      );
+      console.log("[Live sync] Height = " + height + " / " + targetHeight);
       height += 1;
     }
     setTimeout(liveStep, 1000);
@@ -128,13 +120,66 @@ const diff = async (height) => {
   const app = express();
   app.use(cors());
   app.use(express.json());
-  const createRateLimit = (windowS, count) => rateLimit({ windowMs: windowS * 1000, max: count });
+  const createRateLimit = (windowS, count) =>
+    rateLimit({ windowMs: windowS * 1000, max: count });
 
-  app.get('/utxos/:address', createRateLimit(1, 5), asyncHandler(async (req, res) => {
-    const address = req.params.address;
-    res.send(await db.getUtxos(address));
-  }));
+  app.get(
+    "/utxos/:address",
+    createRateLimit(1, 5),
+    asyncHandler(async (req, res) => {
+      const address = req.params.address;
+      res.send(await db.getUtxos(address));
+    })
+  );
 
+  app.get(
+    "/mempool/:address",
+    createRateLimit(1, 5),
+    asyncHandler(async (req, res) => {
+      const address = req.params.address;
+
+      const mempool = await dingo.getRawMempool();
+      let change = 0n;
+      for (const txid of mempool) {
+        const tx = await dingo.getTransaction(txid);
+        for (const d of tx.details) {
+          if (d.address === address) {
+            if (d.category === "send") {
+              if (d.amount[0] !== "-") {
+                throw new Error("Invalid outgoing amount");
+              }
+              change -= BigInt(dingo.toSatoshi(d.amount.slice(1)));
+            } else if (d.category === "receive") {
+              if (d.amount[0] === "-") {
+                throw new Error("Invalid incoming amount");
+              }
+              change += BigInt(dingo.toSatoshi(d.amount));
+            }
+          }
+        }
+      }
+
+      res.send({ change: change.toString() });
+    })
+  );
+
+  app.post(
+    "/sendrawtransaction",
+    createRateLimit(1, 1),
+    asyncHandler(async (req, res) => {
+      const data = req.body;
+      await dingo
+        .sendRawTransaction(data.tx)
+        .then((r) => {
+          res.send({ txid: r });
+        })
+        .catch((e) => {
+          res.send(e);
+        });
+    })
+  );
+
+  /*
   server = https.createServer({
     key: fs.readFileSync('/etc/letsencrypt/live/bewp0.dingocoin.org/privkey.pem'),
     cert: fs.readFileSync('/etc/letsencrypt/live/bewp0.dingocoin.org/fullchain.pem'),
@@ -144,8 +189,8 @@ const diff = async (height) => {
         cert: fs.readFileSync('/etc/letsencrypt/live/bewp0.dingocoin.org/fullchain.pem'),
       }));
     }
-  }, app).listen(8443, () => {
+  },*/
+  app.listen(8443, () => {
     console.log(`Started on port 8443`);
   });
-
 })();
