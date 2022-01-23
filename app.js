@@ -128,6 +128,7 @@ const diff = async (height) => {
     createRateLimit(1, 5),
     asyncHandler(async (req, res) => {
       const address = req.params.address;
+      console.log(`GET ${address}`);
       res.send(await db.getUtxos(address));
     })
   );
@@ -137,6 +138,7 @@ const diff = async (height) => {
     createRateLimit(1, 5),
     asyncHandler(async (req, res) => {
       const address = req.params.address;
+      console.log(`MEMPOOL ${address}`);
 
       const mempool = await dingo.getRawMempool();
       let change = 0n;
@@ -145,8 +147,12 @@ const diff = async (height) => {
         const tx = await dingo.decodeRawTransaction(await dingo.getRawTransaction(txid));
         for (const vin of tx.vin) {
           const utxo = await db.getUtxo(vin.txid, vin.vout);
-          if (utxo.address === address) {
-            change -= BigInt(utxo.amount);
+          if (utxo === undefined) {
+            console.log('Failure: ', vin);
+          } else {
+            if (utxo.address === address) {
+              change -= BigInt(utxo.amount);
+            }
           }
         }
         for (const vout of tx.vout) {
@@ -167,6 +173,7 @@ const diff = async (height) => {
     createRateLimit(1, 1),
     asyncHandler(async (req, res) => {
       const data = req.body;
+      console.log(`SEND ${data.tx}`);
       await dingo
         .sendRawTransaction(data.tx)
         .then((r) => {
