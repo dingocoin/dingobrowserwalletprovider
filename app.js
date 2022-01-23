@@ -176,7 +176,7 @@ const diff = async (height) => {
     })
   );
 
-  app.listen(8080, () => {
-    console.log(`Started on port 8080`);
+  app.listen(80, () => {
+    console.log(`Started on port 80`);
   });
 })();
