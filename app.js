@@ -2,9 +2,7 @@ const cors = require("cors");
 const db = require("./database");
 const dingo = require("./dingo");
 const express = require("express");
-const fs = require("fs");
 const rateLimit = require("express-rate-limit");
-const { createDeflateRaw } = require("zlib");
 
 function asyncHandler(fn) {
   return async function (req, res) {
@@ -186,4 +184,5 @@ const diff = async (height) => {
   app.listen(80, () => {
     console.log(`Started on port 80`);
   });
+
 })();
