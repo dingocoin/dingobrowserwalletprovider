@@ -153,6 +153,6 @@ const diff = async (height, block) => {
 
   acc.start();
   app.listen(8080, () => {
-    console.log(`Started on port 80`);
+    console.log(`Started on port 8080`);
   });
 })();
