@@ -1,8 +1,9 @@
 const cors = require("cors");
 const db = require("./database");
-const dingo = require("./dingo");
+const dingo = require("dingocoin-js");
 const express = require("express");
 const rateLimit = require("express-rate-limit");
+const os = require("os");
 
 function asyncHandler(fn) {
   return async function (req, res) {
@@ -20,35 +21,26 @@ function asyncHandler(fn) {
 // In the same block, the same UTXO can appear in both the vout of some
 // tx and the vin of some other tx. Take care to add first before deleting,
 // so that these duplicates are removed.
-const diff = async (height) => {
+const diff = async (height, block) => {
   const newUtxos = [];
   const delUtxos = [];
 
-  const block = await dingo.getBlock(await dingo.getBlockHash(height));
-  for (const txid of block.tx) {
-    const tx = await dingo.decodeRawTransaction(
-      await dingo.getRawTransaction(txid)
-    );
-
-    for (const vout of tx.vout) {
-      if (vout.scriptPubKey.type !== "nulldata") {
-        if (vout.scriptPubKey.addresses.length !== 1) {
-          console.log(vout.scriptPubKey);
-          throw new Error("INVALID ADDRESSES");
-        }
+  for (const tx of block.txs) {
+    for (const vout of tx.vouts) {
+      if (vout.type !== "nulldata") {
         newUtxos.push({
-          txid: tx.txid,
-          vout: vout.n,
+          txid: vout.txid,
+          index: vout.index,
           height: height,
-          address: vout.scriptPubKey.addresses[0],
-          amount: dingo.toSatoshi(vout.value),
+          address: vout.address,
+          amount: dingo.utils.toSatoshi(vout.value),
         });
       }
     }
 
-    for (const vin of tx.vin) {
-      if (!("coinbase" in vin)) {
-        delUtxos.push({ txid: vin.txid, vout: vin.vout });
+    for (const vin of tx.vins) {
+      if (vin.type !== "coinbase") {
+        delUtxos.push({ txid: vin.txid, index: vin.index });
       }
     }
   }
@@ -58,59 +50,35 @@ const diff = async (height) => {
 
 (async () => {
   console.log("Loading database...");
-  db.load("./database/database.db");
+  db.load();
 
   let height = await db.getLatestHeight();
-
-  // Initial sync: Use memory to speed up diff accumulation.
-  if (height === null) {
-    console.log("Starting initial sync...");
-
-    height = 1; // Start from height = 1.
-    const targetHeight = (await dingo.getBlockchainInfo()).blocks;
-
-    const utxos = {};
-    while (height <= targetHeight) {
-      const { delUtxos, newUtxos } = await diff(height);
-      for (const utxo of newUtxos) {
-        utxos[utxo.txid + "|" + utxo.vout] = utxo;
-      }
-      for (const utxo of delUtxos) {
-        delete utxos[utxo.txid + "|" + utxo.vout];
-      }
-
-      if (height % 1000 === 0) {
-        console.log("[Initial sync] Height = " + height + " / " + targetHeight);
-      }
-      height += 1;
-    }
-
-    // Write to database.
-    const utxoList = Object.values(utxos);
-    console.log(`Writing ${Object.keys(utxoList).length} UTXOs...`);
-    for (let i = 0; i < Object.keys(utxoList).length; i += 1000) {
-      console.log(`  Indexes [${i}, ${i + 1000})`);
-      await db.insertUtxos(Object.values(utxoList.slice(i, i + 1000)));
-    }
-    console.log("Initial sync complete.");
-  } else {
-    height += 1; // Fetch from next block.
-  }
-
-  // Live sync: write directly to database.
-  console.log("Starting live sync...");
-  const liveStep = async () => {
-    const targetHeight = (await dingo.getBlockchainInfo()).blocks;
-    while (height <= targetHeight) {
-      const { delUtxos, newUtxos } = await diff(height);
+  const rpc = dingo.rpc.fromCookie(
+    "~/.dingocoin/.cookie".replace("~", os.homedir)
+  );
+  const acc = new dingo.Accumulator(
+    rpc,
+    height + 1,
+    async (height, block) => {
+      const { delUtxos, newUtxos } = await diff(height, block);
+      await db.beginTransaction();
       await db.insertUtxos(newUtxos);
       await db.removeUtxos(delUtxos);
-      console.log("[Live sync] Height = " + height + " / " + targetHeight);
-      height += 1;
+      await db.endTransaction();
+      console.log("[Live sync] Height = " + height);
+      if (height % 200 === 0) {
+        db.backup();
+        console.log("  [Backup] Completed");
+      }
+    },
+    0,
+    async (height) => {
+      console.log("[Rollback] Triggered");
+      db.restoreBackup();
+      console.log("  [Backup] Restored");
+      return (await db.getLatestHeight()) + 1;
     }
-    setTimeout(liveStep, 1000);
-  };
-  liveStep();
+  );
 
   // API.
   const app = express();
@@ -140,11 +108,13 @@ const diff = async (height) => {
       let change = 0n;
 
       for (const txid of mempool) {
-        const tx = await dingo.decodeRawTransaction(await dingo.getRawTransaction(txid));
+        const tx = await dingo.decodeRawTransaction(
+          await dingo.getRawTransaction(txid)
+        );
         for (const vin of tx.vin) {
           const utxo = await db.getUtxo(vin.txid, vin.vout);
           if (utxo === undefined) {
-            console.log('Failure: ', vin);
+            console.log("Failure: ", vin);
           } else {
             if (utxo.address === address) {
               change -= BigInt(utxo.amount);
@@ -152,7 +122,7 @@ const diff = async (height) => {
           }
         }
         for (const vout of tx.vout) {
-          if (vout.scriptPubKey.type === 'pubkeyhash') {
+          if (vout.scriptPubKey.type === "pubkeyhash") {
             if (vout.scriptPubKey.addresses[0] === address) {
               change += BigInt(dingo.toSatoshi(vout.value));
             }
@@ -181,8 +151,8 @@ const diff = async (height) => {
     })
   );
 
-  app.listen(80, () => {
+  acc.start();
+  app.listen(8080, () => {
     console.log(`Started on port 80`);
   });
-
 })();
