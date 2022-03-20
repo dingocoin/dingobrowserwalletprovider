@@ -67,16 +67,16 @@ async function getLatestHeight() {
   )["MAX(height)"];
 }
 
-function getUtxo(txid, index) {
+function getUtxo(txid, vout) {
   return util.promisify(db.get.bind(db))(
-    `SELECT txid, idx as 'index', height, address, amount FROM utxos WHERE txid=? AND idx=?`,
-    [txid, index]
+    `SELECT txid, vout, height, address, amount FROM utxos WHERE txid=? AND vout=?`,
+    [txid, vout]
   );
 }
 
 function getUtxos(address) {
   return util.promisify(db.all.bind(db))(
-    `SELECT txid, idx as 'index', height, amount FROM utxos WHERE address=?`,
+    `SELECT txid, vout, height, amount FROM utxos WHERE address=?`,
     [address]
   );
 }
@@ -86,8 +86,8 @@ function removeUtxos(utxos) {
     return;
   }
   return util.promisify(db.run.bind(db))(
-    `DELETE FROM utxos WHERE (txid, idx) IN (VALUES ${utxos
-      .map((x) => '("' + x.txid + '",' + x.index + ")")
+    `DELETE FROM utxos WHERE (txid, vout) IN (VALUES ${utxos
+      .map((x) => '("' + x.txid + '",' + x.vout + ")")
       .join(",")})`
   );
 }
@@ -97,13 +97,13 @@ function insertUtxos(utxos) {
     return;
   }
   return util.promisify(db.run.bind(db))(
-    `INSERT INTO utxos (txid, idx, height, address, amount) VALUES ${utxos
+    `INSERT INTO utxos (txid, vout, height, address, amount) VALUES ${utxos
       .map(
         (x) =>
           '("' +
           x.txid +
           '",' +
-          x.index +
+          x.vout +
           "," +
           x.height +
           ',"' +

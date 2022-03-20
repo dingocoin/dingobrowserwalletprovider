@@ -30,7 +30,7 @@ const diff = async (height, block) => {
       if (vout.type !== "nulldata") {
         newUtxos.push({
           txid: vout.txid,
-          index: vout.index,
+          vout: vout.vout,
           height: height,
           address: vout.address,
           amount: dingo.utils.toSatoshi(vout.value),
@@ -40,7 +40,7 @@ const diff = async (height, block) => {
 
     for (const vin of tx.vins) {
       if (vin.type !== "coinbase") {
-        delUtxos.push({ txid: vin.txid, index: vin.index });
+        delUtxos.push({ txid: vin.txid, vout: vin.vout });
       }
     }
   }
