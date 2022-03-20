@@ -104,7 +104,7 @@ const diff = async (height, block) => {
       const address = req.params.address;
       console.log(`MEMPOOL ${address}`);
 
-      const mempool = await dingo.getRawMempool();
+      const mempool = await rpc.getRawMempool();
       let change = 0n;
 
       for (const txid of mempool) {
@@ -152,7 +152,7 @@ const diff = async (height, block) => {
   );
 
   acc.start();
-  app.listen(8080, () => {
-    console.log(`Started on port 8080`);
+  app.listen(80, () => {
+    console.log(`Started on port 80`);
   });
 })();
