@@ -54,7 +54,7 @@ const diff = async (height, block) => {
 
   let height = await db.getLatestHeight();
   const rpc = dingo.rpc.fromCookie(
-    "~/.dingocoin/.cookie".replace("~", os.homedir)
+    "/home/dingo/.dingocoin/.cookie".replace("~", os.homedir)
   );
   const acc = new dingo.Accumulator(
     rpc,
@@ -108,8 +108,8 @@ const diff = async (height, block) => {
       let change = 0n;
 
       for (const txid of mempool) {
-        const tx = await dingo.decodeRawTransaction(
-          await dingo.getRawTransaction(txid)
+        const tx = await rpc.decodeRawTransaction(
+          await rpc.getRawTransaction(txid)
         );
         for (const vin of tx.vin) {
           const utxo = await db.getUtxo(vin.txid, vin.vout);
@@ -122,9 +122,9 @@ const diff = async (height, block) => {
           }
         }
         for (const vout of tx.vout) {
-          if (vout.scriptPubKey.type === "pubkeyhash") {
+          if (["pubkeyhash", "pubkey", "scripthash"].includes(vout.scriptPubKey.type)) {
             if (vout.scriptPubKey.addresses[0] === address) {
-              change += BigInt(dingo.toSatoshi(vout.value));
+              change += BigInt(dingo.utils.toSatoshi(vout.value));
             }
           }
         }
@@ -140,7 +140,7 @@ const diff = async (height, block) => {
     asyncHandler(async (req, res) => {
       const data = req.body;
       console.log(`SEND ${data.tx}`);
-      await dingo
+      await rpc
         .sendRawTransaction(data.tx)
         .then((r) => {
           res.send({ txid: r });
