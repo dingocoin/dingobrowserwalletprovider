@@ -54,7 +54,7 @@ const diff = async (height, block) => {
 
   let height = await db.getLatestHeight();
   const rpc = dingo.rpc.fromCookie(
-    "/home/dingo/.dingocoin/.cookie".replace("~", os.homedir)
+    "~/.dingocoin/.cookie".replace("~", os.homedir)
   );
   const acc = new dingo.Accumulator(
     rpc,
