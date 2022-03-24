@@ -6,7 +6,7 @@ Source code to host a node to serve browser extension wallet requests.
 
 1. Obtain an Ubuntu (>= 20.04) VPS with root access and a static IPv4 address.
 
-2. **Login as the root user for steps 3 to 8.**
+2. **Login as the root user for steps 3 to 8.** (alternative change user to root via `sudo -i -u root` from your normal account)
 
 3. (Read step 2 first) Setup dependencies
 
