@@ -6,18 +6,18 @@ Source code to host a node to serve browser extension wallet requests.
 
 1. Obtain an Ubuntu (>= 20.04) VPS with root access and a static IPv4 address.
 
-2. Login as the **root user** for the following steps.
+2. **Login as the root user for steps 3 to 8.**
 
-3. Setup dependencies
+3. (Read step 2 first) Setup dependencies
 
    ```
    sudo apt -y install curl dirmngr apt-transport-https lsb-release ca-certificates
    curl -sL https://deb.nodesource.com/setup_12.x | sudo -E bash -
    sudo apt -y install nodejs gcc g++ make sqlite3
-   npm install --global yarn
+   sudo npm install --global yarn
    ```
 
-3. Allow only ports 22 (SSH) and 80 (HTTP) on the VPS:
+3. (Read step 2 first) Allow only ports 22 (SSH) and 80 (HTTP) on the VPS:
 
    ```
    ufw reset
@@ -27,7 +27,7 @@ Source code to host a node to serve browser extension wallet requests.
    ufw enable
    ```
 
-5. Setup the latest Dingocoin binaries and extract to `/root/dingocoin`:
+5. (Read step 2 first) Setup the latest Dingocoin binaries and extract to `/root/dingocoin`:
 
    ```
    mkdir /root/dingocoin
@@ -40,7 +40,7 @@ Source code to host a node to serve browser extension wallet requests.
    echo 'txindex=1' > /root/.dingocoin/dingocoin.conf
    ```
 
-6. Clone and setup this repo in `/root/dingobewp`:
+6. (Read step 2 first) Clone and setup this repo in `/root/dingobewp`:
 
    ```
    git clone https://github.com/rkbling/dingobrowserwalletprovider.git /root/dingobewp
@@ -52,7 +52,7 @@ Source code to host a node to serve browser extension wallet requests.
    (Exit sqlite3 prompt using CTRL+D)
    ```
 
-7. Run Dingocoin daemon and wait for it to sync
+7. (Read step 2 first) Run Dingocoin daemon and wait for it to sync
 
    ```
    cd /root/dingocoin
@@ -60,7 +60,7 @@ Source code to host a node to serve browser extension wallet requests.
    ./dingocoin-cli getblockchaininfo        # Use this to check synced height.
    ```
 
- 8. Run provider daemon
+ 8. (Read step 2 first) Run provider daemon
 
     ```
     cd /root/dingobewp
